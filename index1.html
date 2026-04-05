@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام الأكواد الأمنية - APK</title>
+    <style>
+        :root { --p-color: #1a237e; --bg: #f0f2f5; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 10px; }
+        .card { background: white; border-radius: 10px; padding: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        input { width: 100%; padding: 12px; margin: 5px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: var(--p-color); color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
+        .btn-delete { background: #c62828; padding: 5px; width: auto; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: right; }
+        th { background: var(--p-color); color: white; }
+        #app-content { display: none; }
+        .search-box { border: 2px solid var(--p-color); }
+    </style>
+</head>
+<body>
+
+<!-- شاشة الدخول -->
+<div id="login-box" class="card" style="margin-top: 50px;">
+    <h2 style="text-align: center; color: var(--p-color);">تسجيل الدخول</h2>
+    <input type="password" id="pass" placeholder="أدخل الرقم السري (dg25)">
+    <button onclick="login()">دخول</button>
+    <p id="err" style="color:red; display:none; text-align:center;">الرمز خطأ!</p>
+</div>
+
+<!-- محتوى التطبيق -->
+<div id="app-content">
+    <div class="card">
+        <h3>إضافة كود جديد</h3>
+        <input type="number" id="codeId" placeholder="رقم الكود (مثلاً: 120)">
+        <input type="text" id="codeName" placeholder="نوع الحادث أو البيان">
+        <button onclick="addData()" style="background: #2e7d32;">حفظ في ذاكرة الهاتف</button>
+    </div>
+
+    <div class="card">
+        <input type="text" id="search" class="search-box" onkeyup="searchData()" placeholder="بحث سريع بالرقم أو الاسم...">
+        <div style="overflow-x: auto;">
+            <table id="myTable">
+                <thead>
+                    <tr>
+                        <th>كود</th>
+                        <th>البيان</th>
+                        <th>إجراء</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+    <button onclick="clearAll()" style="background: #666; margin-top: 20px;">مسح كل البيانات</button>
+</div>
+
+<script>
+    // 1. نظام الدخول
+    function login() {
+        if(document.getElementById('pass').value === "dg25") {
+            document.getElementById('login-box').style.display = 'none';
+            document.getElementById('app-content').style.display = 'block';
+            loadData(); // تحميل البيانات عند الدخول
+        } else {
+            document.getElementById('err').style.display = 'block';
+        }
+    }
+
+    // 2. إدارة البيانات باستخدام LocalStorage (بديل SQLite المضمون للأندرويد)
+    let storageKey = "DGSN_DATA_STORE";
+
+    function addData() {
+        let id = document.getElementById('codeId').value;
+        let name = document.getElementById('codeName').value;
+
+        if(!id || !name) return alert("املاً الحقول أولاً");
+
+        let currentData = JSON.parse(localStorage.getItem(storageKey)) || [];
+        currentData.push({id: id, name: name});
+        
+        localStorage.setItem(storageKey, JSON.stringify(currentData));
+        
+        document.getElementById('codeId').value = "";
+        document.getElementById('codeName').value = "";
+        loadData();
+    }
+
+    function loadData(filter = "") {
+        let tbody = document.querySelector("#myTable tbody");
+        let data = JSON.parse(localStorage.getItem(storageKey)) || [];
+        
+        tbody.innerHTML = "";
+        
+        data.forEach((item, index) => {
+            if(item.id.includes(filter) || item.name.includes(filter)) {
+                let row = `<tr>
+                    <td>${item.id}</td>
+                    <td>${item.name}</td>
+                    <td><button class="btn-delete" onclick="deleteItem(${index})">حذف</button></td>
+                </tr>`;
+                tbody.innerHTML += row;
+            }
+        });
+    }
+
+    function deleteItem(index) {
+        let data = JSON.parse(localStorage.getItem(storageKey));
+        data.splice(index, 1);
+        localStorage.setItem(storageKey, JSON.stringify(data));
+        loadData();
+    }
+
+    function searchData() {
+        let val = document.getElementById('search').value;
+        loadData(val);
+    }
+
+    function clearAll() {
+        if(confirm("هل تريد مسح قاعدة البيانات بالكامل؟")) {
+            localStorage.removeItem(storageKey);
+            loadData();
+        }
+    }
+</script>
+</body>
+</html>
