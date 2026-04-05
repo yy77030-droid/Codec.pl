@@ -3,121 +3,124 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DGSN Codes SQLite</title>
+    <title>نظام الأكواد الأمنية - APK</title>
     <style>
-        /* (نفس تنسيقات CSS السابقة مع تحسينات للموبايل) */
-        body { font-family: sans-serif; background: #eceff1; margin: 0; padding: 10px; }
-        .container { background: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        input, button { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; }
-        button { background: #1a237e; color: white; font-weight: bold; border: none; }
-        table { width: 100%; border-collapse: collapse; font-size: 14px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-        th { background: #f5f5f5; }
-        #main-app { display: none; }
+        :root { --p-color: #1a237e; --bg: #f0f2f5; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 10px; }
+        .card { background: white; border-radius: 10px; padding: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        input { width: 100%; padding: 12px; margin: 5px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: var(--p-color); color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
+        .btn-delete { background: #c62828; padding: 5px; width: auto; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: right; }
+        th { background: var(--p-color); color: white; }
+        #app-content { display: none; }
+        .search-box { border: 2px solid var(--p-color); }
     </style>
 </head>
 <body>
 
 <!-- شاشة الدخول -->
-<div id="login-screen" class="container" style="margin-top: 50px;">
-    <h2 style="text-align: center;">تسجيل الدخول</h2>
-    <input type="password" id="passwordField" placeholder="الرقم السري (dg25)">
-    <button onclick="checkLogin()">دخول</button>
+<div id="login-box" class="card" style="margin-top: 50px;">
+    <h2 style="text-align: center; color: var(--p-color);">تسجيل الدخول</h2>
+    <input type="password" id="pass" placeholder="أدخل الرقم السري (dg25)">
+    <button onclick="login()">دخول</button>
+    <p id="err" style="color:red; display:none; text-align:center;">الرمز خطأ!</p>
 </div>
 
-<!-- التطبيق الرئيسي -->
-<div id="main-app" class="container">
-    <h3>نظام الأكواد (SQLite)</h3>
-    <input type="text" id="newId" placeholder="رقم الكود">
-    <input type="text" id="newName" placeholder="البيان">
-    <button onclick="saveToDB()" style="background: #2e7d32;">إضافة وحفظ في القاعدة</button>
-    
-    <input type="text" id="search" onkeyup="searchDB()" placeholder="بحث في القاعدة...">
-    
-    <table id="dataTable">
-        <thead>
-            <tr>
-                <th>الكود</th>
-                <th>البيان</th>
-                <th>حذف</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+<!-- محتوى التطبيق -->
+<div id="app-content">
+    <div class="card">
+        <h3>إضافة كود جديد</h3>
+        <input type="number" id="codeId" placeholder="رقم الكود (مثلاً: 120)">
+        <input type="text" id="codeName" placeholder="نوع الحادث أو البيان">
+        <button onclick="addData()" style="background: #2e7d32;">حفظ في ذاكرة الهاتف</button>
+    </div>
+
+    <div class="card">
+        <input type="text" id="search" class="search-box" onkeyup="searchData()" placeholder="بحث سريع بالرقم أو الاسم...">
+        <div style="overflow-x: auto;">
+            <table id="myTable">
+                <thead>
+                    <tr>
+                        <th>كود</th>
+                        <th>البيان</th>
+                        <th>إجراء</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+    <button onclick="clearAll()" style="background: #666; margin-top: 20px;">مسح كل البيانات</button>
 </div>
 
 <script>
-    let db;
-
-    // تشغيل الدخول
-    function checkLogin() {
-        if(document.getElementById('passwordField').value === "dg25") {
-            document.getElementById('login-screen').style.display = "none";
-            document.getElementById('main-app').style.display = "block";
-            initDatabase();
+    // 1. نظام الدخول
+    function login() {
+        if(document.getElementById('pass').value === "dg25") {
+            document.getElementById('login-box').style.display = 'none';
+            document.getElementById('app-content').style.display = 'block';
+            loadData(); // تحميل البيانات عند الدخول
+        } else {
+            document.getElementById('err').style.display = 'block';
         }
     }
 
-    // إعداد قاعدة البيانات (WebSQL/SQLite المتاحة في المتصفحات والأندرويد)
-    function initDatabase() {
-        db = openDatabase('DGSN_DB', '1.0', 'Codes Database', 2 * 1024 * 1024);
-        db.transaction(function (tx) {
-            tx.executeSql('CREATE TABLE IF NOT EXISTS CODES (id UNIQUE, name)');
-            loadFromDB();
+    // 2. إدارة البيانات باستخدام LocalStorage (بديل SQLite المضمون للأندرويد)
+    let storageKey = "DGSN_DATA_STORE";
+
+    function addData() {
+        let id = document.getElementById('codeId').value;
+        let name = document.getElementById('codeName').value;
+
+        if(!id || !name) return alert("املاً الحقول أولاً");
+
+        let currentData = JSON.parse(localStorage.getItem(storageKey)) || [];
+        currentData.push({id: id, name: name});
+        
+        localStorage.setItem(storageKey, JSON.stringify(currentData));
+        
+        document.getElementById('codeId').value = "";
+        document.getElementById('codeName').value = "";
+        loadData();
+    }
+
+    function loadData(filter = "") {
+        let tbody = document.querySelector("#myTable tbody");
+        let data = JSON.parse(localStorage.getItem(storageKey)) || [];
+        
+        tbody.innerHTML = "";
+        
+        data.forEach((item, index) => {
+            if(item.id.includes(filter) || item.name.includes(filter)) {
+                let row = `<tr>
+                    <td>${item.id}</td>
+                    <td>${item.name}</td>
+                    <td><button class="btn-delete" onclick="deleteItem(${index})">حذف</button></td>
+                </tr>`;
+                tbody.innerHTML += row;
+            }
         });
     }
 
-    // حفظ بيانات جديدة
-    function saveToDB() {
-        let id = document.getElementById('newId').value;
-        let name = document.getElementById('newName').value;
-        if(id && name) {
-            db.transaction(function (tx) {
-                tx.executeSql('INSERT INTO CODES (id, name) VALUES (?, ?)', [id, name]);
-                loadFromDB();
-            });
-            document.getElementById('newId').value = "";
-            document.getElementById('newName').value = "";
-        }
+    function deleteItem(index) {
+        let data = JSON.parse(localStorage.getItem(storageKey));
+        data.splice(index, 1);
+        localStorage.setItem(storageKey, JSON.stringify(data));
+        loadData();
     }
 
-    // عرض البيانات من SQLite
-    function loadFromDB() {
-        db.transaction(function (tx) {
-            tx.executeSql('SELECT * FROM CODES', [], function (tx, results) {
-                let tbody = document.querySelector("#dataTable tbody");
-                tbody.innerHTML = "";
-                for (let i = 0; i < results.rows.length; i++) {
-                    let item = results.rows.item(i);
-                    tbody.innerHTML += `<tr>
-                        <td>${item.id}</td>
-                        <td>${item.name}</td>
-                        <td><button onclick="deleteFromDB('${item.id}')" style="background:red; padding:2px;">X</button></td>
-                    </tr>`;
-                }
-            });
-        });
-    }
-
-    function deleteFromDB(id) {
-        db.transaction(function (tx) {
-            tx.executeSql('DELETE FROM CODES WHERE id=?', [id]);
-            loadFromDB();
-        });
-    }
-
-    function searchDB() {
+    function searchData() {
         let val = document.getElementById('search').value;
-        db.transaction(function (tx) {
-            tx.executeSql("SELECT * FROM CODES WHERE name LIKE ? OR id LIKE ?", ['%'+val+'%', '%'+val+'%'], function (tx, results) {
-                let tbody = document.querySelector("#dataTable tbody");
-                tbody.innerHTML = "";
-                for (let i = 0; i < results.rows.length; i++) {
-                    let item = results.rows.item(i);
-                    tbody.innerHTML += `<tr><td>${item.id}</td><td>${item.name}</td><td>...</td></tr>`;
-                }
-            });
-        });
+        loadData(val);
+    }
+
+    function clearAll() {
+        if(confirm("هل تريد مسح قاعدة البيانات بالكامل؟")) {
+            localStorage.removeItem(storageKey);
+            loadData();
+        }
     }
 </script>
 </body>
